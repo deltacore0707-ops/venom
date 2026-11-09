@@ -1,0 +1,1214 @@
+repeat task.wait() until game:IsLoaded()
+
+local _SoundIntroPlayers = game:GetService("Players")
+local _SoundIntroRunService = game:GetService("RunService")
+local _SoundIntroUIS = game:GetService("UserInputService")
+local _SoundIntroLighting = game:GetService("Lighting")
+local _SoundIntroSoundService = game:GetService("SoundService")
+local _SoundIntroTweenService = game:GetService("TweenService")
+local _SoundIntroPlayer = _SoundIntroPlayers.LocalPlayer
+
+local _SOUND_INTRO_MUSIC_URL = "https://files.catbox.moe/y4q5y3.mp3"
+local _SOUND_INTRO_MUSIC_FILE = "legacy_vs_intro_song.mp3"
+local _SOUND_INTRO_MUSIC_VOLUME = 1
+local _SOUND_INTRO_FALLBACK_MUSIC_ID = "rbxassetid://9046862121"
+
+_G._SoundIntroFinished = false
+_G._VantaSkipIntro = false
+_G._VantaIntroActive = true
+
+local function _soundResolveIntroMusicId()
+    local assetGetter = getcustomasset or getsynasset
+    if type(assetGetter) == "function" and type(writefile) == "function" then
+        local exists = false
+        if type(isfile) == "function" then
+            pcall(function() exists = isfile(_SOUND_INTRO_MUSIC_FILE) end)
+        end
+        if not exists then
+            if ok and type(data) == "string" and #data > 0 then
+                pcall(writefile, _SOUND_INTRO_MUSIC_FILE, data)
+            end
+        end
+        local ok, asset = pcall(assetGetter, _SOUND_INTRO_MUSIC_FILE)
+        if ok and asset then return asset end
+    end
+    return _SOUND_INTRO_FALLBACK_MUSIC_ID
+end
+
+local function _soundShowIntro(onFinished)
+    local introSound
+    local function stopIntroMusic()
+        if introSound then
+            pcall(function() introSound:Stop() end)
+            pcall(function() introSound:Destroy() end)
+            introSound = nil
+        end
+    end
+
+    if _G._VantaLoadIntroCleanup then pcall(_G._VantaLoadIntroCleanup) end
+    local isMobile = _SoundIntroUIS.TouchEnabled and not _SoundIntroUIS.KeyboardEnabled
+    local playerGui = _SoundIntroPlayer:WaitForChild("PlayerGui")
+    local old = playerGui:FindFirstChild("VantaLoadIntro")
+    if old then old:Destroy() end
+    local oldBlur = _SoundIntroLighting:FindFirstChild("VantaLoadIntroBlur")
+    if oldBlur then oldBlur:Destroy() end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "VantaLoadIntro"
+    screenGui.ResetOnSpawn = false
+    screenGui.DisplayOrder = 1000005
+    screenGui.IgnoreGuiInset = true
+    screenGui.Parent = playerGui
+
+    introSound = Instance.new("Sound")
+    introSound.Name = "VantaIntroMusic"
+    introSound.SoundId = _soundResolveIntroMusicId()
+    introSound.Volume = _SOUND_INTRO_MUSIC_VOLUME
+    introSound.Looped = false
+    introSound.Parent = _SoundIntroSoundService
+    pcall(function() introSound:Play() end)
+
+    local instance = Instance.new("Frame")
+    instance.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    instance.BackgroundTransparency = 1
+    instance.BorderSizePixel = 0
+    instance.Size = UDim2.fromScale(1, 1)
+    instance.ZIndex = 1000
+    instance.Parent = screenGui
+
+    local rainContainer = Instance.new("Frame")
+    rainContainer.Name = "PurpleRain"
+    rainContainer.BackgroundTransparency = 1
+    rainContainer.Size = UDim2.fromScale(1, 1)
+    rainContainer.ZIndex = 1001
+    rainContainer.ClipsDescendants = true
+    rainContainer.Parent = instance
+
+    local running = true
+    local closing = false
+    task.spawn(function()
+        while running and not closing do
+            local drop = Instance.new("Frame")
+            drop.BackgroundColor3 = Color3.fromRGB(160, 160, 170)
+            drop.BackgroundTransparency = math.random(40, 70) / 100
+            drop.BorderSizePixel = 0
+            drop.Size = UDim2.fromOffset(math.random(1, 3), math.random(15, 30))
+            drop.Position = UDim2.fromScale(math.random(0, 100) / 100, -0.1)
+            drop.ZIndex = 1001
+            drop.Parent = rainContainer
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = drop
+            local fallTime = math.random(15, 25) / 10
+            local tween = _SoundIntroTweenService:Create(drop, TweenInfo.new(fallTime, Enum.EasingStyle.Linear), {
+                Position = UDim2.fromScale(drop.Position.X.Scale, 1.1)
+            })
+            tween:Play()
+            task.delay(fallTime + 0.1, function()
+                if drop and drop.Parent then drop:Destroy() end
+            end)
+            task.wait(math.random(2, 6) / 100)
+        end
+    end)
+
+    local characterFrame = Instance.new("Frame")
+    characterFrame.Name = "CharacterContainer"
+    characterFrame.BackgroundTransparency = 1
+    characterFrame.Visible = false
+    characterFrame.Size = UDim2.fromOffset(1, 1)
+    characterFrame.Parent = instance
+
+    local frame2 = Instance.new("Frame")
+    frame2.Name = "VantaWordmark"
+    frame2.BackgroundTransparency = 1
+    frame2.BorderSizePixel = 0
+    frame2.AnchorPoint = Vector2.new(0.5, 0.5)
+    frame2.Position = UDim2.fromScale(0.5, 0.45)
+    frame2.Size = isMobile and UDim2.fromOffset(280, 80) or UDim2.fromOffset(520, 120)
+    frame2.ClipsDescendants = false
+    frame2.ZIndex = 1003
+    frame2.Parent = instance
+    local uiScale = Instance.new("UIScale")
+    uiScale.Scale = 0.86
+    uiScale.Parent = frame2
+
+    local titleLogo = Instance.new("TextLabel")
+    titleLogo.Name = "LegacyTitle"
+    titleLogo.BackgroundTransparency = 1
+    titleLogo.Size = UDim2.fromScale(1, 1)
+    titleLogo.Position = UDim2.fromScale(0, 0)
+    titleLogo.Text = "legacy.vs"
+    titleLogo.TextColor3 = Color3.fromRGB(220, 220, 230)
+    titleLogo.TextTransparency = 1
+    titleLogo.Font = Enum.Font.GothamBlack
+    titleLogo.TextScaled = true
+    titleLogo.ZIndex = 1004
+    titleLogo.Parent = frame2
+    local titleStroke = Instance.new("UIStroke")
+    titleStroke.Color = Color3.fromRGB(80, 80, 90)
+    titleStroke.Thickness = 1.5
+    titleStroke.Transparency = 0.4
+    titleStroke.Parent = titleLogo
+
+    local wordmarkItems = {}
+    local wordmarkSpecs = {}
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = "TAP ANYWHERE TO SKIP"
+    textLabel.TextColor3 = Color3.fromRGB(210, 210, 215)
+    textLabel.TextTransparency = 1
+    textLabel.TextSize = isMobile and 11 or 22
+    textLabel.Font = Enum.Font.GothamMedium
+    textLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    textLabel.Position = UDim2.new(0.5, 0, 0.85, 0)
+    textLabel.Size = UDim2.new(0.8, 0, 0, 24)
+    textLabel.ZIndex = 1010
+    textLabel.Parent = instance
+
+    local textLabel2 = Instance.new("TextLabel")
+    textLabel2.BackgroundTransparency = 1
+    textLabel2.Text = "legacy.vs"
+    textLabel2.TextColor3 = Color3.fromRGB(160, 160, 170)
+    textLabel2.TextTransparency = 1
+    textLabel2.TextSize = isMobile and 10 or 16
+    textLabel2.Font = Enum.Font.GothamMedium
+    textLabel2.AnchorPoint = Vector2.new(0.5, 0.5)
+    textLabel2.Position = UDim2.new(0.5, 0, 0.88, 0)
+    textLabel2.Size = UDim2.new(0.8, 0, 0, 22)
+    textLabel2.ZIndex = 1010
+    textLabel2.Parent = instance
+
+    local skipBtn = Instance.new("TextButton")
+    skipBtn.Name = "SkipAnywhereButton"
+    skipBtn.BackgroundTransparency = 1
+    skipBtn.Text = ""
+    skipBtn.AutoButtonColor = false
+    skipBtn.Size = UDim2.fromScale(1, 1)
+    skipBtn.ZIndex = 1011
+    skipBtn.Parent = instance
+
+    local blurEffect = Instance.new("BlurEffect")
+    blurEffect.Name = "VantaLoadIntroBlur"
+    blurEffect.Size = 0
+    blurEffect.Parent = _SoundIntroLighting
+    local canSkip = true
+
+    local function smoothstep(a)
+        local n = math.clamp(a, 0, 1)
+        return n * n * (3 - 2 * n)
+    end
+    local function bezier(p0, p1, p2, t)
+        local n = 1 - t
+        return Vector2.new(n*n*p0.X + 2*n*t*p1.X + t*t*p2.X, n*n*p0.Y + 2*n*t*p1.Y + t*t*p2.Y)
+    end
+
+    local function closeIntro()
+        if closing then return end
+        closing = true
+        running = false
+        _G._VantaSkipIntro = true
+        stopIntroMusic()
+        local ti = TweenInfo.new(0.42, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        _SoundIntroTweenService:Create(instance, ti, { BackgroundTransparency = 1 }):Play()
+        _SoundIntroTweenService:Create(uiScale, ti, { Scale = 0.72 }):Play()
+        _SoundIntroTweenService:Create(characterFrame, ti, { Position = UDim2.fromScale(0.5, 1.5) }):Play()
+        _SoundIntroTweenService:Create(blurEffect, ti, { Size = 0 }):Play()
+        _SoundIntroTweenService:Create(textLabel, ti, { TextTransparency = 1 }):Play()
+        _SoundIntroTweenService:Create(textLabel2, ti, { TextTransparency = 1 }):Play()
+        for _, item in ipairs(wordmarkItems) do
+            if item.image then
+                _SoundIntroTweenService:Create(item.image, ti, { ImageTransparency = 1 }):Play()
+            end
+        end
+        if titleLogo then
+            _SoundIntroTweenService:Create(titleLogo, ti, { TextTransparency = 1 }):Play()
+        end
+        task.delay(0.42, function()
+            if screenGui.Parent then screenGui:Destroy() end
+            if blurEffect.Parent then blurEffect:Destroy() end
+            _G._VantaLoadIntroCleanup = nil
+            _G._VantaIntroActive = false
+            if onFinished then onFinished() end
+        end)
+    end
+
+    _G._VantaLoadIntroCleanup = function()
+        running = false
+        closing = true
+        stopIntroMusic()
+        if screenGui.Parent then screenGui:Destroy() end
+        if blurEffect.Parent then blurEffect:Destroy() end
+        _G._VantaIntroActive = false
+        _G._SoundIntroFinished = true
+    end
+    skipBtn.Activated:Connect(closeIntro)
+
+    _SoundIntroTweenService:Create(instance, TweenInfo.new(0.25), { BackgroundTransparency = 0.5 }):Play()
+    _SoundIntroTweenService:Create(blurEffect, TweenInfo.new(0.25), { Size = 10 }):Play()
+    task.delay(0.35, function()
+        if not running then return end
+        if titleLogo then
+            _SoundIntroTweenService:Create(titleLogo, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+        end
+    end)
+    task.delay(1.5, function()
+        if not running then return end
+        _SoundIntroTweenService:Create(textLabel, TweenInfo.new(0.3), { TextTransparency = 0.22 }):Play()
+        _SoundIntroTweenService:Create(textLabel2, TweenInfo.new(0.3), { TextTransparency = 0.18 }):Play()
+    end)
+
+    task.spawn(function()
+        local now = os.clock()
+        while running and not closing do
+            local animTime = os.clock() - now - 0.5
+            if animTime > 0 then
+                local v = smoothstep((animTime - 0.38) / 0.9)
+                local s1 = math.sin(animTime * 1.62) * v
+                local s2 = math.sin(animTime * 3.24) * v
+                uiScale.Scale = 0.86 + smoothstep(animTime / 0.78) * 0.14 + s1 * 0.012
+                for i, item in ipairs(wordmarkItems) do
+                    local spec = item.spec
+                    local offset = i - 3
+                    local distance = math.abs(offset) / 2
+                    local progress = math.clamp((animTime - spec.delay) / 0.96, 0, 1)
+                    local eased = 1 - (1 - progress)^3
+                    local pos = bezier(spec.from, Vector2.new((spec.from.X + spec.final.X) * 0.5 - offset * 0.08, (spec.from.Y + spec.final.Y) * 0.5 + ((i % 2 == 0) and -0.23 or 0.23)), spec.final, eased)
+                    item.slot.Position = UDim2.fromScale(pos.X + offset * s1 * 0.009, pos.Y + (distance*distance*12 - 6) * s1 / 230 + s2 * (1 - distance) * 2.4 / 230)
+                    item.slot.Size = UDim2.fromScale(0.15 * (1 + s1 * (0.035 + distance*0.055)), 0.65 - s1 * (0.028 + distance*0.045))
+                    item.slot.Rotation = spec.rotation * (1 - eased) + offset * s1 * 5.8 + s2 * (1 - distance) * 0.8
+                    local a = math.sin(animTime * 2.85 + i * 0.82)
+                    local b = math.sin(animTime * 2.1 + i * 0.64)
+                    item.image.Position = UDim2.new(0.5, 0, 0.5, b * 1.35)
+                    item.image.Size = UDim2.fromScale(1 + a * 0.026, 1 - a * 0.038)
+                    item.image.Rotation = b * 0.9
+                    item.image.ImageTransparency = 1 - smoothstep((progress - 0.02) / 0.18)
+                end
+            end
+            _SoundIntroRunService.RenderStepped:Wait()
+        end
+    end)
+
+    task.delay(10, function()
+        if running and not closing then closeIntro() end
+    end)
+end
+
+_soundShowIntro(function()
+    _G._SoundIntroFinished = true
+    print("[legacy.vs] Intro finished — loading main script...")
+end)
+
+repeat task.wait() until _G._SoundIntroFinished == true
+print("[legacy.vs] Intro finished. Starting main script.")
+
+do
+    local function _ehSetFFlag(name, value)
+        local ok = false
+        if type(setfflag) == "function" then
+            ok = pcall(setfflag, name, value)
+        end
+        if not ok and type(setfflag) ~= "function" then
+            if type(setflag) == "function" then
+                pcall(setflag, name, value)
+            elseif type(set_fflag) == "function" then
+                pcall(set_fflag, name, value)
+            end
+        end
+    end
+
+    _ehSetFFlag("DFFlagBrowserTrackerIdTelemetryEnabled", "False")
+    _ehSetFFlag("DFFlagPreloadAsyncSupportTexturePack", "True")
+    _ehSetFFlag("DFFlagTextureQualityOverrideEnabled", "True")
+    _ehSetFFlag("DFFlagVideoCaptureServiceEnabled", "False")
+    _ehSetFFlag("DFFlagSampleAndRefreshRakPing", "True")
+    _ehSetFFlag("DFFlagRakNetUseSlidingWindow4", "True")
+    _ehSetFFlag("DFFlagCoreScriptTelemetry2", "False")
+    _ehSetFFlag("DFFlagEnableSoundPreloading", "True")
+    _ehSetFFlag("DFFlagOptimizePartsInPart", "True")
+    _ehSetFFlag("DFFlagDisableDPIScale", "True")
+    _ehSetFFlag("DFFlagDebugPerfMode", "True")
+
+    _ehSetFFlag("DFIntRaknetBandwidthInfluxHundredthsPercentageV2", "10000")
+    _ehSetFFlag("DFIntRakNetClockDriftAdjustmentPerPingMillisecond", "100")
+    _ehSetFFlag("DFIntPerformanceControlTextureQualityBestUtility", "-1")
+    _ehSetFFlag("DFIntSignalRHubConnectionHeartbeatTimerRateMs", "1000")
+    _ehSetFFlag("DFIntMaxReceiveToDeserializeLatencyMilliseconds", "15")
+    _ehSetFFlag("DFIntMegaReplicatorNetworkQualityProcessorUnit", "10")
+    _ehSetFFlag("DFIntNetworkInDeserializeLimitGameplayMsClient", "6")
+    _ehSetFFlag("DFIntSignalRHubConnectionBaseRetryTimeMs", "100")
+    _ehSetFFlag("DFIntClientPacketHealthyAllocationPercent", "20")
+    _ehSetFFlag("DFIntTelemetryProfilerHundredthsPercentage", "0")
+    _ehSetFFlag("DFIntMaxWaitTimeBeforeForcePacketProcessMS", "1")
+    _ehSetFFlag("DFIntNetworkInProcessLimitGameplayMsClient", "6")
+    _ehSetFFlag("DFIntAnimationLodFacsVisibilityDenominator", "0")
+    _ehSetFFlag("DFIntRaknetBandwidthPingSendEveryXSeconds", "1")
+    _ehSetFFlag("DFIntSignalRCoreKeepAlivePingPeriodMs", "250")
+    _ehSetFFlag("DFIntClientPacketMaxFrameMicroseconds", "200")
+    _ehSetFFlag("DFIntSoundServiceCacheCleanupMaxAgeDays", "2")
+    _ehSetFFlag("DFIntMaxProcessPacketsStepsPerCyclic", "5000")
+    _ehSetFFlag("DFIntClientPacketExcessMicroseconds", "1000")
+    _ehSetFFlag("DFIntMaxProcessPacketsStepsAccumulated", "0")
+    _ehSetFFlag("DFIntWaitOnUpdateNetworkLoopEndedMS", "100")
+    _ehSetFFlag("DFIntLargePacketQueueSizeCutoffMB", "1000")
+    _ehSetFFlag("DFIntMaxProcessPacketsJobScaling", "10000")
+    _ehSetFFlag("DFIntRakNetNakResendDelayRttPercent", "50")
+    _ehSetFFlag("DFIntSignalRCoreServerTimeoutMs", "11100")
+    _ehSetFFlag("DFIntDebugFRMQualityLevelOverride", "1")
+    _ehSetFFlag("DFIntClientPacketMinMicroseconds", "1")
+    _ehSetFFlag("DFIntAnimationLodFacsDistanceMin", "0")
+    _ehSetFFlag("DFIntAnimationLodFacsDistanceMax", "0")
+    _ehSetFFlag("DFIntWaitOnRecvFromLoopEndedMS", "100")
+    _ehSetFFlag("DFIntRakNetNakResendDelayMsMax", "100")
+    _ehSetFFlag("DFIntCodecMaxOutgoingFrames", "10000")
+    _ehSetFFlag("DFIntSignalRCoreRpcQueueSize", "256")
+    _ehSetFFlag("DFIntRakNetMinAckGrowthPercent", "0")
+    _ehSetFFlag("DFIntTaskSchedulerTargetFps", "9999")
+    _ehSetFFlag("DFIntCodecMaxIncomingPackets", "100")
+    _ehSetFFlag("DFIntRakNetMtuValue3InBytes", "1200")
+    _ehSetFFlag("DFIntRakNetMtuValue1InBytes", "1280")
+    _ehSetFFlag("DFIntRakNetMtuValue2InBytes", "1240")
+    _ehSetFFlag("DFIntRakNetNakResendDelayMs", "10")
+    _ehSetFFlag("DFIntRakNetResendRttMultiple", "1")
+    _ehSetFFlag("DFIntMemCacheMaxCapacityMB", "48")
+    _ehSetFFlag("DFIntClientPacketMaxDelayMs", "11")
+    _ehSetFFlag("DFIntTextureQualityOverride", "0")
+    _ehSetFFlag("DFIntRakNetSelectTimeoutMs", "1")
+    _ehSetFFlag("DFIntSignalRCoreTimerMs", "750")
+    _ehSetFFlag("DFIntConnectionMTUSize", "1260")
+    _ehSetFFlag("DFIntMaxFrameBufferSize", "4")
+    _ehSetFFlag("DFIntRakNetLoopMs", "1")
+    _ehSetFFlag("DFIntDebugRestrictGCDistance", "1")
+
+    _ehSetFFlag("FIntTaskSchedulerAsyncTasksMinimumThreadCount", "2")
+    _ehSetFFlag("FIntRenderMaxShadowAtlasUsageBeforeDownscale", "80")
+    _ehSetFFlag("FIntPerformanceTelemetryQueueProcessLimit", "0")
+    _ehSetFFlag("FIntRenderShadowMapDepthCacheMemLimit", "192")
+    _ehSetFFlag("FIntUITextureMaxRenderTextureSize", "1024")
+    _ehSetFFlag("FIntRakNetResendBufferArrayLength", "128")
+    _ehSetFFlag("FIntTaskSchedulerAutoThreadLimit", "6")
+    _ehSetFFlag("FIntTerrainOTAMaxTextureSize", "1024")
+    _ehSetFFlag("FIntOcclusionWorkerThreadCount", "5")
+    _ehSetFFlag("FIntTaskSchedulerMaxNumOfJobs", "86")
+    _ehSetFFlag("FIntTelemetryProfilerFrequency", "0")
+    _ehSetFFlag("FIntRenderLocalLightFadeInMs", "0")
+    _ehSetFFlag("FIntDefaultMeshCacheSizeMB", "256")
+    _ehSetFFlag("FIntReportDeviceInfoRollout", "0")
+    _ehSetFFlag("FIntTaskSchedulerThreadMin", "1")
+    _ehSetFFlag("FIntRobloxGuiBlurIntensity", "0")
+    _ehSetFFlag("FIntTerrainArraySliceSize", "0")
+    _ehSetFFlag("FIntDebugForceMSAASamples", "1")
+    _ehSetFFlag("FIntRenderShadowmapBias", "0")
+    _ehSetFFlag("FIntFRMMaxGrassDistance", "0")
+    _ehSetFFlag("FIntFRMMinGrassDistance", "0")
+    _ehSetFFlag("FIntGrassMovementReducedMotionFactor", "0")
+    _ehSetFFlag("FIntDebugTextureManagerSkipMips", "7")
+
+    _ehSetFFlag("RenderUseTextureManager224", "False")
+    _ehSetFFlag("TextureQualityOverride", "1")
+    _ehSetFFlag("TextureQualityOverrideEnabled", "True")
+    _ehSetFFlag("PerformanceControlTextureQualityBestUtility", "1")
+    _ehSetFFlag("FFlagRenderAllocateShadowMapResourcesOnDemand", "True")
+    _ehSetFFlag("FFlagSpecifyNetworkReplicatorScopeForItems", "True")
+    _ehSetFFlag("FFlagTaskSchedulerLimitTargetFpsTo2402", "False")
+    _ehSetFFlag("FFlagHandleAltEnterFullscreenManually", "False")
+    _ehSetFFlag("FFlagGameBasicSettingsFramerateCap5", "False")
+    _ehSetFFlag("FFlagSpecifyNetworkReplicatorScope", "True")
+    _ehSetFFlag("FFlagSendRenderFidelityTelemetry2", "False")
+    _ehSetFFlag("FFlagRenderGpuTextureCompressor", "True")
+    _ehSetFFlag("FFlagBaseThreadPoolUseRuntime2", "True")
+    _ehSetFFlag("FFlagCacheTextBoundsInGuiText", "True")
+    _ehSetFFlag("FFlagEnableTelemetryService1", "False")
+    _ehSetFFlag("FFlagDebugGraphicsPreferD3D11", "True")
+    _ehSetFFlag("FFlagPerfDataOnTelemetryV2", "False")
+    _ehSetFFlag("FFlagOpenTelemetryEnabled2", "False")
+    _ehSetFFlag("FFlagRbxStorageUseMemCache", "True")
+    _ehSetFFlag("FFlagDebugForceGenerateHSR", "True")
+    _ehSetFFlag("FFlagRenderInitShadowmaps", "True")
+    _ehSetFFlag("FFlagFastGPULightCulling3", "True")
+    _ehSetFFlag("FFlagDebugSkyGray", "True")
+    _ehSetFFlag("FFlagDebugRenderingSetDeterministic", "True")
+    _ehSetFFlag("FLogNetwork", "7")
+
+    pcall(function()
+        if type(setfpscap) == "function" then setfpscap(0) end 
+    end)
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    end)
+    pcall(function()
+        local UserGameSettings = UserSettings():GetService("UserGameSettings")
+        if UserGameSettings then
+            UserGameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        end
+    end)
+end
+
+if _G.ExoticHubRunning then
+    warn("[legacy.vs] Instancia previa detectada. Se recomienda rejoin si hay comportamiento errático.")
+end
+_G.ExoticHubRunning = false
+_G.__ExoticHubMainOriginalPos = nil
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local HS = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local LP = Players.LocalPlayer
+if not LP then
+    local _lpConn
+    _lpConn = Players.PlayerAdded:Connect(function(p) LP = p end)
+    local _t0 = tick()
+    while not LP and tick() - _t0 < 15 do task.wait(0.1) end
+    if _lpConn then _lpConn:Disconnect() end
+end
+if not LP then
+    warn("[legacy.vs] LocalPlayer no disponible en 15s. Abortando.")
+    return
+end
+
+pgui = LP:WaitForChild("PlayerGui", 20)
+if not pgui then
+    warn("[legacy.vs] PlayerGui no cargó en 20s. Abortando.")
+    return
+end
+
+camera = Workspace.CurrentCamera
+
+_G.ExoticHubRunning = true
+_G.ExoticHubSession = (_G.ExoticHubSession or 0) + 1
+_mySession = _G.ExoticHubSession
+
+EXOTIC_HUB_LANGUAGE = "en"
+
+local EXOTIC_HUB_TRANSLATIONS = {
+    es = { ["RESET ALL SETTINGS"]="RESTABLECER TODO", ["SETTINGS RESET"]="AJUSTES RESTABLECIDOS", ["CONFIRM?"]="¿CONFIRMAR?", ["ERROR"]="ERROR", ["Reset All Keybinds"]="RESTABLECER TECLAS", ["RESET"]="RESTABLECER", ["Keybinds"]="TECLAS", ["Carry Mode"]="MODO CARGAR", ["Lagger Mode"]="MODO LAG", ["Auto Left"]="AUTO IZQUIERDA", ["Auto Right"]="AUTO DERECHA", ["Auto Bat"]="AUTO BATE", ["TP BAT"]="TP BATE", ["Insta Reset"]="REINICIO RÁPIDO", ["TP Down"]="TP ABAJO", ["Drop Brainrot"]="SOLTAR BRAINROT", ["Hide GUI"]="OCULTAR MENÚ", ["Normal Speed"]="VELOCIDAD NORMAL", ["Carry Speed"]="VELOCIDAD CARGAR", ["Current Mode"]="MODO ACTUAL", ["ACTIVATE"]="ACTIVAR" },
+    pt = { ["RESET ALL SETTINGS"]="REDEFINIR TUDO", ["SETTINGS RESET"]="CONFIGURAÇÕES REDEFINIDAS", ["CONFIRM?"]="CONFIRMAR?", ["ERROR"]="ERRO", ["Reset All Keybinds"]="REDEFINIR TECLAS", ["RESET"]="REDEFINIR", ["Keybinds"]="TECLAS", ["Carry Mode"]="MODO CARREGAR", ["Auto Left"]="AUTO ESQUERDA", ["Auto Right"]="AUTO DIREITA", ["Hide GUI"]="OCULTAR MENU", ["Normal Speed"]="VELOCIDADE NORMAL", ["Carry Speed"]="VELOCIDADE CARREGAR", ["ACTIVATE"]="ATIVAR" },
+    fr = { ["RESET ALL SETTINGS"]="RÉINITIALISER", ["SETTINGS RESET"]="PARAMÈTRES RÉINITIALISÉS", ["CONFIRM?"]="CONFIRMER ?", ["ERROR"]="ERREUR", ["Reset All Keybinds"]="RÉINITIALISER LES TOUCHES", ["RESET"]="RÉINITIALISER", ["Keybinds"]="RACCOURCIS", ["Carry Mode"]="MODE PORTER", ["Auto Left"]="AUTO GAUCHE", ["Auto Right"]="AUTO DROITE", ["Hide GUI"]="MASQUER LE MENU", ["Normal Speed"]="VITESSE NORMALE", ["Carry Speed"]="VITESSE PORTER", ["ACTIVATE"]="ACTIVER" },
+    de = { ["RESET ALL SETTINGS"]="ALLES ZURÜCKSETZEN", ["SETTINGS RESET"]="EINSTELLUNGEN ZURÜCKGESETZT", ["CONFIRM?"]="BESTÄTIGEN?", ["ERROR"]="FEHLER", ["Reset All Keybinds"]="TASTEN ZURÜCKSETZEN", ["RESET"]="ZURÜCKSETZEN", ["Keybinds"]="TASTEN", ["Carry Mode"]="TRAGEMODUS", ["Auto Left"]="AUTO LINKS", ["Auto Right"]="AUTO RECHTS", ["Hide GUI"]="MENÜ AUSBLENDEN", ["Normal Speed"]="NORMALE GESCHWINDIGKEIT", ["Carry Speed"]="TRAGEGESCHWINDIGKEIT", ["ACTIVATE"]="AKTIVIEREN" },
+}
+
+function localizeExoticHubInterface(root)
+    local dictionary = EXOTIC_HUB_TRANSLATIONS[EXOTIC_HUB_LANGUAGE]
+    if not dictionary or not root then return end
+    for _, object in ipairs(root:GetDescendants()) do
+        if object:IsA("TextLabel") or object:IsA("TextButton") then
+            local source = object:GetAttribute("ExoticHubSourceText") or object.Text
+            object:SetAttribute("ExoticHubSourceText", source)
+            local translated = dictionary[source]
+            if translated then object.Text = translated end
+        end
+    end
+end
+
+function exoticHubTranslate(source)
+    local dictionary = EXOTIC_HUB_TRANSLATIONS[EXOTIC_HUB_LANGUAGE]
+    return (dictionary and dictionary[source]) or source
+end
+
+local _tick          = tick
+local _clamp         = math.clamp
+local _floor         = math.floor
+local _abs           = math.abs
+local _huge          = math.huge
+local _sqrt          = math.sqrt
+local _V3new         = Vector3.new
+local _V3zero        = Vector3.zero
+local _CFnew         = CFrame.new
+local _CFlookAt      = CFrame.lookAt
+local _RayParams_new = RaycastParams.new
+
+_GetPlayersCached = (function()
+    local cache, cacheTime = nil, 0
+    return function()
+        local now = _tick()
+        if cache and now - cacheTime < 0.03 then return cache end
+        cache = Players:GetPlayers()
+        cacheTime = now
+        return cache
+    end
+end)()
+
+function waitForCharReady(char, timeout)
+    timeout = timeout or 5
+    local deadline = _tick() + timeout
+    while (not char) or (not char.Parent)
+          or (not char:FindFirstChild("HumanoidRootPart"))
+          or (not char:FindFirstChildOfClass("Humanoid")) do
+        if _tick() > deadline then return false end
+        task.wait(0.05)
+    end
+    return true
+end
+
+NS = 60
+NS_V2 = 72
+CS = 29
+normalSpeedMode = "v1"  
+spinBotEnabled = false
+spinBotSpeed = 12
+spinBotConn = nil
+antiLoseEnabled = false
+antiLoseConn = nil
+autoAfterDropBat = false
+halloweenMode = false
+uiLayoutMode = "Left"  
+customFontName = "Gotham"
+CUSTOM_FONTS = {
+    { "Gotham", Enum.Font.Gotham },
+    { "GothamBold", Enum.Font.GothamBold },
+    { "GothamBlack", Enum.Font.GothamBlack },
+    { "SourceSans", Enum.Font.SourceSans },
+    { "SourceSansBold", Enum.Font.SourceSansBold },
+    { "Code", Enum.Font.Code },
+    { "Arcade", Enum.Font.Arcade },
+    { "FredokaOne", Enum.Font.FredokaOne },
+    { "DenkOne", Enum.Font.DenkOne },
+}
+setSpinBotVisual = nil
+setAntiLoseVisual = nil
+setAutoAfterDropVisual = nil
+setHalloweenVisual = nil
+
+LAGGER_SPEED = 15
+LAGGER_CARRY_SPEED = 24.5
+MEDUSA_COOLDOWN = 25
+BAT_AIMBOT_SPEED = 58
+BYPASS_AIMBOT_SPEED = 58
+CONFIG_FILE = "LegacyVS_" .. tostring(LP.UserId) .. ".json"
+BAT_V2_HIT_DIST = 4.5
+AUTO_BAT_SPEED = 58
+AUTO_BAT_VERT_SPEED = 52
+AUTO_BAT_DIST = 2.8
+AUTO_BAT_HEIGHT = 4.75
+AUTO_BAT_V_OFF = 1
+AUTO_BAT_TURN_SPEED = 285
+AUTO_BAT_MAX_TURN_RATE = 28
+autoBatEquippedThisRun = false
+_autoBatTargetCache = nil
+_autoBatTargetAt = 0
+_isDraggingButton = false
+
+backgroundIndex = 1
+backgroundPresets = {
+    { id = "100588228383951", theme = "Gray", label = "Legacy" },
+    { id = "129138078396534", theme = "Gray", label = "Legacy 2" },
+    { id = "85891680074340", theme = "Gray", label = "Legacy 3" },
+    { id = "111761531749015", theme = "Gray", label = "Legacy 4" },
+    { id = "120480454937730", theme = "Gray", label = "Legacy 5" },
+    { id = nil, theme = "Gray", label = "None" },
+}
+backgroundImages = {
+    "100588228383951",
+    "129138078396534",
+    "85891680074340",
+    "111761531749015",
+    "120480454937730",
+}
+
+backgroundImageTransparency = 0
+backgroundMode = "Background 1"
+backgroundSelectorLabel = nil
+backgroundPreviewButtons = {}
+floatingButtonScale = 1
+mobileButtonCircleMode = false 
+mobileButtonsMatchBackground = false 
+_floatingUIScales = {}
+stealBarScaleBox = nil
+mbButtonsScaleBox = nil
+
+function applyBackgroundMode(mode)
+    if mode == "None" or mode == nil then
+        backgroundMode = "None"
+        backgroundIndex = 0
+    else
+        backgroundMode = "Background 1"
+        if type(mode) == "number" then backgroundIndex = mode end
+        if not backgroundIndex or backgroundIndex < 1 then backgroundIndex = 1 end
+    end
+    if main then
+        main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        local hasImage = backgroundMode ~= "None" and backgroundIndex and backgroundIndex >= 1 and backgroundImages[backgroundIndex]
+        main.BackgroundTransparency = hasImage and 1 or 0
+        local bgImage = main:FindFirstChild("BackgroundImage")
+        if bgImage then
+            if hasImage then
+                bgImage.Image = "rbxassetid://" .. tostring(backgroundImages[backgroundIndex])
+                bgImage.ImageTransparency = backgroundImageTransparency
+            else
+                bgImage.Image = ""
+                bgImage.ImageTransparency = 1
+            end
+        end
+        pcall(function()
+            if applyBackgroundToAutoGrab then
+                applyBackgroundToAutoGrab(hasImage and backgroundImages[backgroundIndex] or nil)
+            end
+        end)
+        pcall(function()
+            if refreshMobileButtonsBackground then
+                refreshMobileButtonsBackground()
+            end
+        end)
+    end
+    if backgroundSelectorLabel then backgroundSelectorLabel.Text = backgroundMode end
+    updateBackgroundPreviewSelection()
+end
+
+function applyBackgroundToAutoGrab(imageId)
+    local bar = pbFrame
+    if not bar and gui then
+        bar = gui:FindFirstChild("SyeHubAutoGrabBar", true)
+    end
+    if not bar then return end
+    local bg = bar:FindFirstChild("BackgroundImage")
+    if not bg then
+        bg = Instance.new("ImageLabel")
+        bg.Name = "BackgroundImage"
+        bg.Size = UDim2.new(1, 0, 1, 0)
+        bg.Position = UDim2.new(0, 0, 0, 0)
+        bg.BackgroundTransparency = 1
+        bg.ScaleType = Enum.ScaleType.Crop
+        bg.ZIndex = 500 
+        bg.ClipsDescendants = true
+        bg.Parent = bar
+        pcall(function()
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 13)
+            c.Parent = bg
+        end)
+    end
+    if imageId and tostring(imageId) ~= "" then
+        bg.Image = "rbxassetid://" .. tostring(imageId)
+        bg.ImageTransparency = backgroundImageTransparency or 0
+        bar.BackgroundTransparency = 1
+        local og = bar:FindFirstChild("OuterRelief")
+        if og then og.Enabled = false end
+    else
+        bg.Image = ""
+        bg.ImageTransparency = 1
+        bar.BackgroundTransparency = 0
+        local og = bar:FindFirstChild("OuterRelief")
+        if og then og.Enabled = true end
+    end
+end
+
+function applyBackgroundToMobileButtons(imageId)
+    if not mobileButtonsMatchBackground then
+        imageId = nil 
+    end
+    local function styleBtn(btn)
+        if not btn or not btn:IsA("GuiObject") then return end
+        local bg = btn:FindFirstChild("BackgroundImage")
+        if not bg then
+            bg = Instance.new("ImageLabel")
+            bg.Name = "BackgroundImage"
+            bg.Size = UDim2.new(1, 0, 1, 0)
+            bg.Position = UDim2.new(0, 0, 0, 0)
+            bg.BackgroundTransparency = 1
+            bg.ScaleType = Enum.ScaleType.Crop
+            bg.ZIndex = (btn.ZIndex or 10)
+            bg.ClipsDescendants = true
+            bg.Parent = btn
+            local corner = btn:FindFirstChildOfClass("UICorner")
+            local c = Instance.new("UICorner")
+            c.CornerRadius = corner and corner.CornerRadius or UDim.new(0, 12)
+            c.Parent = bg
+        else
+            local corner = btn:FindFirstChildOfClass("UICorner")
+            local bc = bg:FindFirstChildOfClass("UICorner")
+            if corner and bc then bc.CornerRadius = corner.CornerRadius end
+        end
+        local label = btn:FindFirstChild("TextLabel")
+        if label then
+            label.ZIndex = math.max(label.ZIndex, (btn.ZIndex or 10) + 2)
+        end
+        local grad = btn:FindFirstChild("BtnGrad") or btn:FindFirstChildOfClass("UIGradient")
+        if imageId and tostring(imageId) ~= "" then
+            bg.Image = "rbxassetid://" .. tostring(imageId)
+            bg.ImageTransparency = backgroundImageTransparency or 0
+            btn.BackgroundTransparency = 1
+            if grad then grad.Enabled = false end
+        else
+            bg.Image = ""
+            bg.ImageTransparency = 1
+            btn.BackgroundTransparency = 0
+            if grad then grad.Enabled = true end
+        end
+    end
+    pcall(function()
+        if MobilePanel then
+            for _, btn in ipairs(MobilePanel:GetChildren()) do
+                if btn:IsA("TextButton") then styleBtn(btn) end
+            end
+        end
+        for _, panel in ipairs({tpBatFloatingButton, instaResetFloatingButton}) do
+            if panel then
+                for _, d in ipairs(panel:GetDescendants()) do
+                    if d:IsA("TextButton") or (d:IsA("Frame") and d.Name == "Frame") then
+                        styleBtn(d)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+function refreshMobileButtonsBackground()
+    local id = nil
+    if mobileButtonsMatchBackground then
+        if backgroundMode ~= "None" and backgroundIndex and backgroundIndex >= 1 and backgroundImages[backgroundIndex] then
+            id = backgroundImages[backgroundIndex]
+        elseif backgroundPresets and backgroundIndex and backgroundPresets[backgroundIndex] then
+            id = backgroundPresets[backgroundIndex].id
+        end
+    end
+    applyBackgroundToMobileButtons(id)
+end
+
+function applyBackgroundPreset(index)
+    local preset = backgroundPresets[index]
+    if not preset then return end
+    backgroundIndex = index
+    if preset.id then
+        backgroundMode = "Background 1"
+        backgroundImages[index] = preset.id
+    else
+        backgroundMode = "None"
+        backgroundIndex = 0
+    end
+    if main then
+        main.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        local bgImage = main:FindFirstChild("BackgroundImage")
+        if preset.id then
+            main.BackgroundTransparency = 1
+            if bgImage then
+                bgImage.Image = "rbxassetid://" .. tostring(preset.id)
+                bgImage.ImageTransparency = backgroundImageTransparency
+            end
+        else
+            main.BackgroundTransparency = 0
+            if bgImage then
+                bgImage.Image = ""
+                bgImage.ImageTransparency = 1
+            end
+        end
+    end
+    pcall(function()
+        if applyBackgroundToAutoGrab then
+            applyBackgroundToAutoGrab(preset.id)
+        end
+    end)
+    pcall(function()
+        if refreshMobileButtonsBackground then
+            refreshMobileButtonsBackground()
+        end
+    end)
+    local themes = COLOR_THEMES or _G.COLOR_THEMES
+    if preset.theme and themes and themes[preset.theme] then
+        local c = themes[preset.theme]
+        currentColorTheme = preset.theme
+        selectedColor = c
+        _lastThemeColor = nil
+        _lastThemeUpdate = 0
+        pcall(function()
+            if updateAllUIThemeColors then
+                updateAllUIThemeColors(c)
+            end
+        end)
+        pcall(function()
+            if main then
+                for _, d in ipairs(main:GetDescendants()) do
+                    if d:IsA("UIStroke") and d.Name ~= "NormalStroke" then
+                        local col = d.Color
+                        local r, g, b = col.R, col.G, col.B
+                        local gray = math.abs(r - g) < 0.08 and math.abs(g - b) < 0.08
+                        local dark = (r + g + b) < 0.30
+                        local white = r > 0.88 and g > 0.88 and b > 0.88
+                        if not gray and not dark and not white then
+                            d.Color = c
+                        end
+                    elseif d:IsA("UIGradient") then
+                        local n = d.Name
+                        if n == "FillGrad" or n == "TabBgGrad" or n == "BtnGrad" or n == "AccentGrad" or n == "UIGradient" then
+                            d.Color = exoticHubGradient(c)
+                        else
+                            end
+        if (not body or #body < 1000) and game.HttpGetAsync then
+            end
+        if body and #body > 1000 and writefile then
+            local gca = getcustomasset or getsynasset
+            pcall(function()
+                writefile("syehub_intro.mp3", body)
+                if type(gca) == "function" then
+                    local id = gca("syehub_intro.mp3")
+                    if type(id) == "string" and #id > 0 then soundId = id end
+                end
+            end)
+        end
+        if not soundId then soundId = INTRO_AUDIO_URL end
+        local s = Instance.new("Sound")
+        s.Name = "SyeHubIntroSong"
+        s.SoundId = tostring(soundId)
+        s.Volume = 1.05
+        s.Looped = false
+        s.PlaybackSpeed = 0.98 
+        s.RollOffMode = Enum.RollOffMode.InverseTapered
+        s.EmitterSize = 8
+        s.Parent = game:GetService("SoundService")
+
+        pcall(function()
+            local eq = Instance.new("EqualizerSoundEffect")
+            eq.Name = "RadioEQ"
+            eq.HighGain = -18
+            eq.MidGain = 4
+            eq.LowGain = -12
+            eq.Priority = 10
+            eq.Enabled = true
+            eq.Parent = s
+        end)
+        pcall(function()
+            local dist = Instance.new("DistortionSoundEffect")
+            dist.Name = "RadioDistortion"
+            dist.Level = 0.18
+            dist.Priority = 8
+            dist.Enabled = true
+            dist.Parent = s
+        end)
+        pcall(function()
+            local trem = Instance.new("TremoloSoundEffect")
+            trem.Name = "RadioTremolo"
+            trem.Depth = 0.35
+            trem.Duty = 0.5
+            trem.Frequency = 4.5
+            trem.Priority = 6
+            trem.Enabled = true
+            trem.Parent = s
+        end)
+        pcall(function()
+            local pitch = Instance.new("PitchShiftSoundEffect")
+            pitch.Name = "RadioPitch"
+            pitch.Octave = 0.97
+            pitch.Priority = 5
+            pitch.Enabled = true
+            pitch.Parent = s
+        end)
+        pcall(function()
+            local chorus = Instance.new("ChorusSoundEffect")
+            chorus.Name = "RadioChorus"
+            chorus.Depth = 0.12
+            chorus.Mix = 0.25
+            chorus.Rate = 0.8
+            chorus.Priority = 4
+            chorus.Enabled = true
+            chorus.Parent = s
+        end)
+
+        pcall(function()
+            game:GetService("ContentProvider"):PreloadAsync({ s })
+        end)
+        local t0 = tick()
+        while not s.IsLoaded and tick() - t0 < 8 do
+            task.wait(0.05)
+        end
+        introSound = s
+        return s
+    end
+    pcall(loadIntroSound)
+    if introSound then
+        pcall(function() introSound:Play() end)
+        task.spawn(function()
+            local static = Instance.new("Sound")
+            static.Name = "SyeHubRadioStatic"
+            static.SoundId = "rbxassetid://9113826542" 
+            static.Volume = 0.12
+            static.Looped = true
+            static.PlaybackSpeed = 1.15
+            static.Parent = game:GetService("SoundService")
+            pcall(function()
+                local eq = Instance.new("EqualizerSoundEffect")
+                eq.HighGain = 6
+                eq.MidGain = -8
+                eq.LowGain = -20
+                eq.Parent = static
+            end)
+            pcall(function() static:Play() end)
+            local prevStop = stopIntroSound
+            stopIntroSound = function()
+                pcall(function()
+                    static:Stop()
+                    static:Destroy()
+                end)
+                prevStop()
+            end
+        end)
+    end
+
+    local introGui = Instance.new("ScreenGui")
+    introGui.Name = "SyeHubIntro"
+    introGui.ResetOnSpawn = false
+    introGui.IgnoreGuiInset = true
+    introGui.DisplayOrder = 9999
+    pcall(function() if syn and syn.protect_gui then syn.protect_gui(introGui) end end)
+    local okP = pcall(function() introGui.Parent = game:GetService("CoreGui") end)
+    if not okP then
+        introGui.Parent = LP:FindFirstChild("PlayerGui") or LP:WaitForChild("PlayerGui", 2)
+    end
+
+    local bg = Instance.new("Frame", introGui)
+    bg.Size = UDim2.fromScale(1, 1)
+    bg.BackgroundColor3 = Color3.fromRGB(4, 4, 8)
+    bg.BackgroundTransparency = 1
+    bg.BorderSizePixel = 0
+    bg.ZIndex = 1
+
+    local radioBadge = Instance.new("Frame", introGui)
+    radioBadge.Name = "RadioBadge"
+    radioBadge.AnchorPoint = Vector2.new(0.5, 0)
+    radioBadge.Position = UDim2.new(0.5, 0, 0, 28)
+    radioBadge.Size = UDim2.fromOffset(150, 28)
+    radioBadge.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    radioBadge.BackgroundTransparency = 0.25
+    radioBadge.BorderSizePixel = 0
+    radioBadge.ZIndex = 20
+    Instance.new("UICorner", radioBadge).CornerRadius = UDim.new(0, 8)
+    local radioDot = Instance.new("Frame", radioBadge)
+    radioDot.Size = UDim2.fromOffset(8, 8)
+    radioDot.Position = UDim2.new(0, 12, 0.5, -4)
+    radioDot.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+    radioDot.BorderSizePixel = 0
+    radioDot.ZIndex = 21
+    Instance.new("UICorner", radioDot).CornerRadius = UDim.new(1, 0)
+    local radioLbl = Instance.new("TextLabel", radioBadge)
+    radioLbl.Size = UDim2.new(1, -28, 1, 0)
+    radioLbl.Position = UDim2.new(0, 26, 0, 0)
+    radioLbl.BackgroundTransparency = 1
+    radioLbl.Text = "RADIO  ·  ON AIR"
+    radioLbl.TextColor3 = Color3.fromRGB(230, 230, 240)
+    radioLbl.Font = Enum.Font.GothamBold
+    radioLbl.TextSize = 11
+    radioLbl.TextXAlignment = Enum.TextXAlignment.Left
+    radioLbl.ZIndex = 21
+    task.spawn(function()
+        while radioBadge and radioBadge.Parent do
+            radioDot.BackgroundTransparency = 0
+            task.wait(0.45)
+            if not radioBadge.Parent then break end
+            radioDot.BackgroundTransparency = 0.65
+            task.wait(0.45)
+        end
+    end)
+
+    local rainLayer = Instance.new("Frame", introGui)
+    rainLayer.Name = "SpiderLayer"
+    rainLayer.BackgroundTransparency = 1
+    rainLayer.Size = UDim2.fromScale(1, 1)
+    rainLayer.ZIndex = 2
+    rainLayer.ClipsDescendants = true
+    local rainRunning = true
+    local theme = (getThemeColor and getThemeColor()) or Color3.fromRGB(180, 180, 190)
+    task.spawn(function()
+        while rainRunning and introGui.Parent do
+            local x = math.random(2, 98) / 100
+            local spiderSize = math.random(18, 32)
+            local fallTime = math.random(22, 40) / 10
+
+            local holder = Instance.new("Frame")
+            holder.BackgroundTransparency = 1
+            holder.Size = UDim2.fromOffset(spiderSize + 4, 220)
+            holder.Position = UDim2.fromScale(x, -0.15)
+            holder.ZIndex = 3
+            holder.Parent = rainLayer
+
+            local thread = Instance.new("Frame", holder)
+            thread.Name = "Silk"
+            thread.AnchorPoint = Vector2.new(0.5, 0)
+            thread.Position = UDim2.new(0.5, 0, 0, 0)
+            thread.Size = UDim2.fromOffset(1, 1)
+            thread.BackgroundColor3 = Color3.fromRGB(210, 210, 220)
+            thread.BackgroundTransparency = 0.35
+            thread.BorderSizePixel = 0
+            thread.ZIndex = 3
+
+            local spider = Instance.new("TextLabel", holder)
+            spider.Name = "Spider"
+            spider.AnchorPoint = Vector2.new(0.5, 0)
+            spider.Position = UDim2.new(0.5, 0, 0, 0)
+            spider.Size = UDim2.fromOffset(spiderSize, spiderSize)
+            spider.BackgroundTransparency = 1
+            spider.Text = "🕷"
+            spider.TextScaled = true
+            spider.ZIndex = 4
+            spider.Rotation = math.random(-12, 12)
+
+            TS:Create(thread, TweenInfo.new(fallTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Size = UDim2.fromOffset(1, 160 + math.random(0, 80))
+            }):Play()
+            TS:Create(spider, TweenInfo.new(fallTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0.5, 0, 0, 140 + math.random(0, 70)),
+                Rotation = spider.Rotation + math.random(-25, 25)
+            }):Play()
+            TS:Create(holder, TweenInfo.new(fallTime + 0.8, Enum.EasingStyle.Linear), {
+                Position = UDim2.fromScale(x, 1.05)
+            }):Play()
+
+            task.delay(fallTime + 1.0, function()
+                if holder then pcall(function() holder:Destroy() end) end
+            end)
+            task.wait(math.random(12, 28) / 100)
+        end
+    end)
+
+    local center = Instance.new("Frame", introGui)
+    center.AnchorPoint = Vector2.new(0.5, 0.5)
+    center.Position = UDim2.fromScale(0.5, 0.48)
+    center.Size = UDim2.fromOffset(320, 200)
+    center.BackgroundTransparency = 1
+    center.ZIndex = 10
+
+    local ring = Instance.new("Frame", center)
+    ring.AnchorPoint = Vector2.new(0.5, 0.5)
+    ring.Position = UDim2.fromScale(0.5, 0.32)
+    ring.Size = UDim2.fromOffset(90, 90)
+    ring.BackgroundTransparency = 1
+    ring.ZIndex = 11
+    local ringStroke = Instance.new("UIStroke", ring)
+    ringStroke.Color = theme
+    ringStroke.Thickness = 2.5
+    ringStroke.Transparency = 1
+    Instance.new("UICorner", ring).CornerRadius = UDim.new(1, 0)
+
+    local letters = {"S", "Y", "E"}
+    local letterFrames = {}
+    local word = Instance.new("Frame", center)
+    word.AnchorPoint = Vector2.new(0.5, 0.5)
+    word.Position = UDim2.fromScale(0.5, 0.32)
+    word.Size = UDim2.fromOffset(210, 80)
+    word.BackgroundTransparency = 1
+    word.ZIndex = 12
+    for i, ch in ipairs(letters) do
+        local lab = Instance.new("TextLabel", word)
+        lab.Size = UDim2.fromOffset(64, 80)
+        lab.Position = UDim2.new(0, (i - 1) * 70, 0, 0)
+        lab.BackgroundTransparency = 1
+        lab.Text = ch
+        lab.Font = Enum.Font.GothamBlack
+        lab.TextSize = 58
+        lab.TextColor3 = Color3.fromRGB(255, 255, 255)
+        lab.TextTransparency = 1
+        lab.Rotation = (i % 2 == 0) and 16 or -16
+        lab.ZIndex = 13
+        local st = Instance.new("UIStroke", lab)
+        st.Thickness = 1.4
+        st.Transparency = 0.35
+        st.Color = theme
+        letterFrames[i] = lab
+    end
+
+    local tag = Instance.new("TextLabel", center)
+    tag.AnchorPoint = Vector2.new(0.5, 0)
+    tag.Position = UDim2.new(0.5, 0, 0.58, 0)
+    tag.Size = UDim2.new(1, 0, 0, 22)
+    tag.BackgroundTransparency = 1
+    tag.Text = ".gg/legacyvs"
+    tag.Font = Enum.Font.GothamBold
+    tag.TextSize = 14
+    tag.TextColor3 = theme
+    tag.TextTransparency = 1
+    tag.ZIndex = 12
+
+    local barBg = Instance.new("Frame", center)
+    barBg.AnchorPoint = Vector2.new(0.5, 0)
+    barBg.Position = UDim2.new(0.5, 0, 0.78, 0)
+    barBg.Size = UDim2.fromOffset(160, 4)
+    barBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    barBg.BackgroundTransparency = 1
+    barBg.BorderSizePixel = 0
+    barBg.ClipsDescendants = true
+    barBg.ZIndex = 12
+    Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
+    local barFill = Instance.new("Frame", barBg)
+    barFill.Size = UDim2.new(0, 0, 1, 0)
+    barFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    barFill.BorderSizePixel = 0
+    barFill.ZIndex = 13
+    Instance.new("UICorner", barFill).CornerRadius = UDim.new(1, 0)
+    local barGrad = Instance.new("UIGradient", barFill)
+    barGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, theme:Lerp(Color3.new(0,0,0), 0.3)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, theme:Lerp(Color3.new(0,0,0), 0.3)),
+    })
+
+    local skipHint = Instance.new("TextLabel", introGui)
+    skipHint.AnchorPoint = Vector2.new(0.5, 1)
+    skipHint.Position = UDim2.new(0.5, 0, 1, -28)
+    skipHint.Size = UDim2.new(0.8, 0, 0, 20)
+    skipHint.BackgroundTransparency = 1
+    skipHint.Text = "TAP TO SKIP"
+    skipHint.Font = Enum.Font.GothamMedium
+    skipHint.TextSize = 12
+    skipHint.TextColor3 = Color3.fromRGB(200, 200, 210)
+    skipHint.TextTransparency = 1
+    skipHint.ZIndex = 20
+
+    local skipBtn = Instance.new("TextButton", introGui)
+    skipBtn.BackgroundTransparency = 1
+    skipBtn.Text = ""
+    skipBtn.Size = UDim2.fromScale(1, 1)
+    skipBtn.ZIndex = 50
+    skipBtn.AutoButtonColor = false
+
+    local finished = false
+    local function finish()
+        if finished then return end
+        finished = true
+        rainRunning = false
+        pcall(stopIntroSound)
+        local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TS:Create(bg, ti, { BackgroundTransparency = 1 }):Play()
+        for _, lab in ipairs(letterFrames) do
+            TS:Create(lab, ti, { TextTransparency = 1 }):Play()
+        end
+        TS:Create(tag, ti, { TextTransparency = 1 }):Play()
+        TS:Create(skipHint, ti, { TextTransparency = 1 }):Play()
+        TS:Create(barBg, ti, { BackgroundTransparency = 1 }):Play()
+        TS:Create(ringStroke, ti, { Transparency = 1 }):Play()
+        task.delay(0.4, function()
+            if introGui then pcall(function() introGui:Destroy() end) end
+            if onDone then pcall(onDone) end
+        end)
+    end
+    skipBtn.Activated:Connect(finish)
+
+    local INTRO_DURATION = 7
+    local tStart = tick()
+    task.spawn(function()
+        TS:Create(bg, TweenInfo.new(0.35), { BackgroundTransparency = 0.12 }):Play()
+        TS:Create(ringStroke, TweenInfo.new(0.4), { Transparency = 0.25 }):Play()
+        for i, lab in ipairs(letterFrames) do
+            task.wait(0.1)
+            if finished then return end
+            TS:Create(lab, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                TextTransparency = 0,
+                Rotation = 0,
+            }):Play()
+        end
+        if finished then return end
+        TS:Create(tag, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
+        TS:Create(skipHint, TweenInfo.new(0.3), { TextTransparency = 0.25 }):Play()
+        TS:Create(barBg, TweenInfo.new(0.25), { BackgroundTransparency = 0.35 }):Play()
+        local fillTime = math.max(0.8, INTRO_DURATION - (tick() - tStart) - 0.5)
+        TS:Create(barFill, TweenInfo.new(fillTime, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Size = UDim2.new(1, 0, 1, 0)
+        }):Play()
+        while not finished and (tick() - tStart) < (INTRO_DURATION - 0.4) do
+            for i, lab in ipairs(letterFrames) do
+                local y = ((i % 2 == 0) and -3 or 3)
+                TS:Create(lab, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Po... (177 KB left)
